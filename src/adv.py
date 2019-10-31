@@ -1,7 +1,26 @@
 from room import Room
 from player import Player
+from item import Item
 
-# Declare all the rooms
+# Declare items
+
+items = {
+    'necronomicon': Item("necronomicon", 
+    """A substantial tome by Abdul Alhazred. The front cover has a strange 
+    texture and appears to have the outlines of a face."""), 
+
+    "reagent": Item("reagent", 
+    """A vial of an unknown substance with an eerie green glow."""), 
+
+    "notes": Item("notes", 
+    """A notebook containing records of a series of ghastly medical experiments
+    conducted by a Dr. Herbert West."""), 
+
+    "bonesaw": Item("bonesaw", 
+    """A medical implement for cutting bone.""")
+}
+
+# Declare rooms
 
 room = {
     'outside':  Room("The Medical School Entrance", 
@@ -20,7 +39,8 @@ room = {
     'hill_office': Room("Dr. Hill's Office", 
     """   The office contains several desks and tables, all covered with 
     books and journals. One wall is lined with built-in bookshelves, and 
-    there is a padded observation cell on the far end."""),
+    there is a padded observation cell on the far end.""", 
+    items=[items['necronomicon'], items['bonesaw']]),
 
     'dean_office':   Room("Dean Halsey's Office", 
     """   The Dean's office has a large desk with two antique chairs in front 
@@ -33,11 +53,7 @@ room = {
     """   Accessible via elevator and a long nondescript hallway, the morgue 
     looks like a bomb went off inside of it. Gurneys are turned on their side 
     and there is broken glass all over the floors. What's most notable, however, 
-    is the complete lack of cadavers."""),
-}
-
-items = {
-    'necronomicon': Item("Necronomicon")
+    is the complete lack of cadavers.""", items=[items['reagent'], items['notes']]),
 }
 
 # Link rooms together
@@ -53,45 +69,89 @@ room['morgue'].w_to = room['lobby']
 
 # Main
 
-def game():
-    playing = True
-    # probably don't need this assignment
-    current_room = player.location
-
-    while(playing):
-        acceptable_inputs = ['q']
+def print_status():
+    # display current location 
+    print(f"\nYou are in {player.location.name}. \n\n {player.location.description} \n\n")
         
-        # display current location 
-        print(f"\n\n\n\n\n\n\n\nYou are in {current_room.name}. \n\n {current_room.description} \n\n")
-        
-        # print adjacent rooms
-        adjacencies = [current_room.n_to, current_room.s_to, 
-        current_room.e_to, current_room.w_to]
-        directions = ['north', 'south', 'east', 'west']
+    # print adjacent rooms
+    player.acceptable_inputs=[]
+    adjacencies = [player.location.n_to, player.location.s_to, 
+    player.location.e_to, player.location.w_to]
+    directions = ['north', 'south', 'east', 'west']
 
-        for adjacent, direction in zip(adjacencies, directions):
-            if adjacent is not None:
-                print(f"{direction}: {adjacent.name} \n")
-                acceptable_inputs.append(direction[0:1])
+    for adjacent, direction in zip(adjacencies, directions):
+        if adjacent is not None:
+            print(f"{direction}: {adjacent.name} \n")
+            player.acceptable_inputs.append(direction[0:1])
 
-        # get user input for direction
-        direction = input("Which direction will you go? (n, s, e, w):")
+    # print items
+    items = player.location.items
 
-        dict = {'n': current_room.n_to, 's': current_room.s_to, 
-        'e': current_room.e_to, 'w': current_room.w_to}
+    if items is not None:
+        for item in items:
+            print(f"You see {item}")
 
-        # quit or change room location
-        if direction in acceptable_inputs:
-            if direction=='q':
-                playing = False
-            else:
-                current_room = dict[direction]
-        else:
-            print("\n\n\n\n\n\nThere is nothing in that direction.")
+def move():
+    
+    # get user input for direction
+    direction = input("Which direction will you go? (n, s, e, w):")
 
+    dict = {'n': player.location.n_to, 's': player.location.s_to, 
+    'e': player.location.e_to, 'w': player.location.w_to}
+
+    # change room location
+    if direction in player.acceptable_inputs:
+        player.location = dict[direction]
+    else:
+        print("\nThere is nothing in that direction.")
+
+def player_action():
+    # prompt commands
+    player.command = input("Enter your course of action (move, get [item], drop [item], inventory, quit): ")
+    
+    if player.command=="move":
+        move()
+    elif player.command=='quit' or player.command=='q':
+        player.playing=False
+    elif player.command=='inventory' or player.command=='i':
+        print("\nINVENTORY")
+        print("---"*25)
+        for i in player.inventory:
+            print(f"{i.name}: {i.description}")
+        print("---"*25)
+    elif len(player.command.split())==2:
+        if player.command.split()[0]=='get':
+            get()
+        if player.command.split()[0]=='drop':
+            drop()
+    else:
+        print("Invalid Command!")
+
+def drop():
+    valid_item_names = [i.name for i in player.inventory]
+    desired_item = player.command.split()[1]
+    if desired_item in valid_item_names:
+        player.location.items.append(items[desired_item])
+        player.inventory.remove(items[desired_item])
+        items[desired_item].on_drop()
+    else:
+        print("That is not a valid command!")
+
+def get():
+    valid_item_names = [i.name for i in player.location.items]
+    desired_item = player.command.split()[1]
+    if desired_item in valid_item_names:
+        player.inventory.append(items[desired_item])
+        player.location.items.remove(items[desired_item])
+        items[desired_item].on_take()
+    else:
+        print("That is not a valid command!")
+   
 # Make a new player object that is currently in the 'outside' room.
 
 player = Player("Robert Olmstead", room['outside'], 12, 10)
 
 if __name__ == "__main__":
-     game()
+     while(player.playing):
+        print_status()
+        player_action()
